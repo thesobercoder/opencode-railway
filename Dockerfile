@@ -43,6 +43,12 @@ RUN npm install -g "opencode-ai@${OPENCODE_VERSION}" \
     && npm cache clean --force \
     && opencode --version
 
+# `opencode web` always tries to open a browser. In a container that throws an
+# ENOENT stack trace across the deploy log on every boot — caught and harmless,
+# but it reads like a crash. A no-op shim makes the call succeed quietly.
+RUN printf '#!/bin/sh\nexit 0\n' > /usr/local/bin/xdg-open \
+    && chmod +x /usr/local/bin/xdg-open
+
 COPY Caddyfile /etc/caddy/Caddyfile
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
