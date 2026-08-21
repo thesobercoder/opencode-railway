@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+: "${PORT:=8080}"
+: "${OPENCODE_INTERNAL_PORT:=4096}"
+: "${OPENCODE_SERVER_USERNAME:=opencode}"
+: "${OPENCODE_WORKSPACE:=/data/workspace}"
+export HOME="${HOME:-/data}"
+
+# opencode warns about an unset password and then serves anyway. This is a code
+# agent with shell access, so an unauthenticated public deployment is a remote
+# shell for anyone who finds the URL. Refuse to start instead.
+if [ -z "${OPENCODE_SERVER_PASSWORD:-}" ]; then
+	echo "FATAL: OPENCODE_SERVER_PASSWORD is not set." >&2
+	echo "       opencode would serve an unauthenticated shell on the public internet." >&2
+	echo "       Set OPENCODE_SERVER_PASSWORD on this service and redeploy." >&2
+	exit 1
+fi
+
+# Caddy cannot compute a basic-auth header, and no Railway variable can either —
+# so it is derived here, at boot, and re-derives itself if the password changes.
+OPENCODE_AUTH_HEADER="Basic $(printf '%s:%s' "$OPENCODE_SERVER_USERNAME" "$OPENCODE_SERVER_PASSWORD" | base64 -w0)"
+export OPENCODE_AUTH_HEADER PORT OPENCODE_INTERNAL_PORT
+
+mkdir -p "$OPENCODE_WORKSPACE" "$HOME/.config/opencode" "$HOME/.local/share/opencode" "$HOME/.cache"
+
+# The volume mounts root-owned; git refuses to touch a tree whose owner differs
+# from the caller, and the agent's first `git status` would fail with a
+# dubious-ownership error that reads like a broken workspace.
+git config --global --add safe.directory '*' || true
+git config --global user.name "${GIT_AUTHOR_NAME:-opencode}"
+git config --global user.email "${GIT_AUTHOR_EMAIL:-opencode@localhost}"
+git config --global init.defaultBranch main
+
+if [ ! -d "$OPENCODE_WORKSPACE/.git" ]; then
+	git init -q "$OPENCODE_WORKSPACE"
+	echo "==> initialised an empty git workspace at $OPENCODE_WORKSPACE"
+fi
+
+cd "$OPENCODE_WORKSPACE"
+
+echo "==> opencode $(opencode --version 2>/dev/null || echo unknown)"
+echo "==> workspace $OPENCODE_WORKSPACE, data $HOME/.local/share/opencode"
+echo "==> caddy on :$PORT -> opencode on 127.0.0.1:$OPENCODE_INTERNAL_PORT"
+
+caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null
+caddy run --config /etc/caddy/Caddyfile --adapter caddyfile &
+caddy_pid=$!
+
+# Bound to loopback: Caddy is the only way in, so opencode is never directly
+# reachable even from inside the Railway private network.
+opencode web --hostname 127.0.0.1 --port "$OPENCODE_INTERNAL_PORT" &
+opencode_pid=$!
+
+terminate() {
+	kill -TERM "$caddy_pid" "$opencode_pid" 2>/dev/null || true
+}
+trap terminate TERM INT
+
+# Exit as soon as either half dies so Railway restarts the container, rather than
+# leaving a half-dead service reporting green.
+wait -n "$caddy_pid" "$opencode_pid"
+status=$?
+terminate
+exit "$status"
