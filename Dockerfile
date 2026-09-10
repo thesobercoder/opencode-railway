@@ -53,6 +53,11 @@ RUN npm install -g "skills@${SKILLS_CLI_VERSION}" \
     && npm cache clean --force \
     && skills --version
 
+ARG PLAYWRIGHT_MCP_VERSION=latest
+RUN npm install -g "@playwright/mcp@${PLAYWRIGHT_MCP_VERSION}" \
+    && npm cache clean --force \
+    && playwright-mcp --version
+
 COPY Caddyfile /etc/caddy/Caddyfile
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY install-skills.sh /usr/local/bin/install-skills.sh

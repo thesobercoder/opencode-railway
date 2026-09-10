@@ -6,6 +6,7 @@ workspace, GitHub and Railway tooling, and global programming skills.
 The image includes:
 
 - OpenCode 2 from `@opencode/cli@beta`, started with `opencode2 serve`.
+- Playwright MCP for browser automation through a remote Chrome/Steel instance.
 - Git, GitHub CLI (`gh`), Railway CLI (`railway`), and the npm `skills` CLI.
 - Node.js 22, Python 3, pip, virtual environments, and a C/C++ build toolchain.
 - Shell utilities including curl, jq, ripgrep, and an SSH client.
@@ -45,7 +46,8 @@ them in Railway unless you want a different value.
 | `OPENCODE_SERVER_USERNAME` | `opencode` | Web UI and API username. |
 | `PORT` | `8080` | Caddy's public HTTP port. Match the Railway domain target port. |
 | `OPENCODE_INTERNAL_PORT` | `4096` | OpenCode's port, bound to `127.0.0.1`. |
-| `OPENCODE_WORKSPACE` | `/data/workspace` | Initial working directory; initialized as a Git repository if needed. |
+| `OPENCODE_WORKSPACE` | `/data/browser-artifacts` | Browser screenshots and other Playwright MCP outputs. |
+| `/data/workspace` | Initial working directory; initialized as a Git repository if needed. |
 | `GIT_AUTHOR_NAME` | `opencode` | Author name and global Git `user.name`. |
 | `GIT_AUTHOR_EMAIL` | `opencode@localhost` | Author email and global Git `user.email`. |
 | `GIT_COMMITTER_NAME` | Author name | Global Git committer name. |
@@ -56,6 +58,7 @@ them in Railway unless you want a different value.
 | `GH_PROMPT_DISABLED` | `1` | Disable GitHub CLI prompts. |
 | `RAILWAY_API_TOKEN` | None | Account/workspace token for Railway CLI and the default MCP connection. |
 | `FIRECRAWL_API_KEY` | None | Credential for the configured Firecrawl web-search provider. |
+| `PLAYWRIGHT_MCP_CDP_ENDPOINT` | None | Remote CDP WebSocket URL; enables the `browser` MCP at startup. |
 | `OPENCODE_CONFIG_CONTENT` | Firecrawl search and an allow-all permission rule | Inline OpenCode configuration supplied by the image. |
 
 `RAILWAY_DOCKERFILE_PATH` is unnecessary because `railway.json` already selects
@@ -173,12 +176,50 @@ Replace `owner/repo` and `skill-name` with the desired source and name. Addition
 skills persist, but startup only refreshes skills listed in `install-skills.sh`. Run `install-skills.sh` to refresh all configured skills manually, or repeat
 an individual `skills add` command to refresh that skill.
 
+## Browser verification with Steel
+
+Deploy the [official Steel Browser template](https://railway.com/deploy/steelbrowser)
+into the same Railway project and environment as OpenCode. Name the service
+`steel-browser`, remove its public domain, and set these Steel variables:
+
+```dotenv
+HOST=::
+PORT=3000
+DOMAIN=steel-browser.railway.internal:3000
+CDP_DOMAIN=steel-browser.railway.internal:9223
+CDP_REDIRECT_PORT=9223
+USE_SSL=false
+```
+
+Keep Steel's health-check path at `/v1/health`. In the **OpenCode** service, set:
+
+```dotenv
+PLAYWRIGHT_MCP_CDP_ENDPOINT=ws://steel-browser.railway.internal:9223
+```
+
+Redeploy OpenCode. Startup registers `browser` in the global MCP configuration,
+using the image's Playwright MCP CLI. The CLI connects to Steel over Railway's
+private network. It provides navigation, clicks, page snapshots, screenshots,
+console messages, and network inspection. Artifacts are saved under
+`/data/browser-artifacts` on OpenCode's persistent volume.
+
+When testing an app running in the OpenCode container, bind its development
+server to `::` and use `http://opencode.railway.internal:5173` (substitute its
+actual port and service name). `localhost` in Chrome refers to the Steel
+container. No public app domain is needed for these checks.
+
+Steel is a shared browser: its pages and sessions can be visible to concurrent
+agent tasks. Browser state is separate from the OpenCode volume and should not
+be assumed to survive Steel redeployments. To disable this integration, remove
+the endpoint variable and the `browser` MCP entry from the global config.
+
 ## Persistent data
 
 With the default `HOME=/data`, the volume retains:
 
 | Path | Contents |
 |---|---|
+| `/data/browser-artifacts` | Browser screenshots and other Playwright MCP outputs. |
 | `/data/workspace` | Working repository and files. |
 | `/data/.agents/skills` | Universal global skills. |
 | `/data/.config/opencode` | OpenCode configuration, including Railway MCP. |
@@ -204,6 +245,7 @@ docker build -t opencode-railway .
 | `OPENCODE_VERSION` | `beta` | `@opencode/cli` |
 | `RAILWAY_CLI_VERSION` | `latest` | `@railway/cli` |
 | `SKILLS_CLI_VERSION` | `latest` | `skills` |
+| `PLAYWRIGHT_MCP_VERSION` | `latest` | `@playwright/mcp` |
 
 Pass exact npm versions with `--build-arg` to pin tools. Floating tags are resolved
 when their installation layers run; a cached Docker layer can retain an older

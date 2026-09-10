@@ -57,6 +57,22 @@ if ! timeout --kill-after=5s 60s railway mcp install --agent opencode; then
 	echo "WARNING: Railway MCP setup did not complete. Run 'railway mcp install --agent opencode' to retry." >&2
 fi
 
+# Register the remote browser alongside Railway without replacing other MCPs.
+if [ -n "${PLAYWRIGHT_MCP_CDP_ENDPOINT:-}" ]; then
+	mkdir -p "$HOME/browser-artifacts"
+	node <<'NODE'
+const fs = require('node:fs');
+const path = `${process.env.HOME}/.config/opencode/opencode.json`;
+const config = fs.existsSync(path) ? JSON.parse(fs.readFileSync(path, 'utf8')) : {};
+const server = { type: 'local', command: ['playwright-mcp', '--caps', 'vision', '--output-dir', `${process.env.HOME}/browser-artifacts`] };
+config.mcp ??= {};
+if (config.mcp.servers) config.mcp.servers.browser = { ...server, disabled: false };
+else config.mcp.browser = { ...server, enabled: true };
+fs.writeFileSync(`${path}.tmp`, JSON.stringify(config, null, 2) + '\n', { mode: 0o600 });
+fs.renameSync(`${path}.tmp`, path);
+NODE
+fi
+
 echo "==> opencode2 $(opencode2 --version 2>/dev/null || echo unknown)"
 echo "==> workspace $OPENCODE_WORKSPACE, data $HOME/.local/share/opencode"
 echo "==> caddy on :$PORT -> opencode on 127.0.0.1:$OPENCODE_INTERNAL_PORT"
