@@ -8,16 +8,10 @@
 }
 
 :{$PORT} {
-	# opencode requires basic auth on every route except three static manifest
-	# files, and Railway's anonymous prober would get 401 on all of them — a 401
-	# fails a deployment exactly like a 503. Railway's healthcheckPath alphabet
-	# also rejects the dots and hyphens in those manifest paths.
-	#
-	# So /healthz is answered here, by replaying it as an authenticated request to
-	# opencode's own /global/health. A 200 then means opencode is up AND accepting
-	# the configured credential, not merely that this container is alive.
+	# Railway probes without credentials. Forward its health check to the V2
+	# API with basic auth so success verifies the server and its credential.
 	handle /healthz {
-		rewrite * /global/health
+		rewrite * /api/health
 		reverse_proxy 127.0.0.1:{$OPENCODE_INTERNAL_PORT} {
 			header_up Authorization "{$OPENCODE_AUTH_HEADER}"
 		}
@@ -25,7 +19,7 @@
 
 	handle {
 		reverse_proxy 127.0.0.1:{$OPENCODE_INTERNAL_PORT} {
-			# opencode streams server-sent events on /global/event; without this
+			# opencode streams server-sent events on /api/event; without this
 			# Caddy buffers them and the UI never updates.
 			flush_interval -1
 		}

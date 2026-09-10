@@ -7,12 +7,11 @@ set -euo pipefail
 : "${OPENCODE_WORKSPACE:=/data/workspace}"
 export HOME="${HOME:-/data}"
 
-# opencode warns about an unset password and then serves anyway. This is a code
-# agent with shell access, so an unauthenticated public deployment is a remote
-# shell for anyone who finds the URL. Refuse to start instead.
+# This service exposes an agent with shell access. Require a password before
+# starting either server.
 if [ -z "${OPENCODE_SERVER_PASSWORD:-}" ]; then
 	echo "FATAL: OPENCODE_SERVER_PASSWORD is not set." >&2
-	echo "       opencode would serve an unauthenticated shell on the public internet." >&2
+	echo "       The public code server requires authentication." >&2
 	echo "       Set OPENCODE_SERVER_PASSWORD on this service and redeploy." >&2
 	exit 1
 fi
@@ -30,7 +29,15 @@ mkdir -p "$OPENCODE_WORKSPACE" "$HOME/.config/opencode" "$HOME/.local/share/open
 git config --global --add safe.directory '*' || true
 git config --global user.name "${GIT_AUTHOR_NAME:-opencode}"
 git config --global user.email "${GIT_AUTHOR_EMAIL:-opencode@localhost}"
+git config --global committer.name "${GIT_COMMITTER_NAME:-${GIT_AUTHOR_NAME:-opencode}}"
+git config --global committer.email "${GIT_COMMITTER_EMAIL:-${GIT_AUTHOR_EMAIL:-opencode@localhost}}"
 git config --global init.defaultBranch main
+
+# Reset inherited helpers for this host before consulting gh. Store only the
+# helper command; gh reads the token from the environment when Git needs it.
+git config --global --replace-all "credential.https://${GH_HOST:-github.com}.helper" ''
+git config --global --add "credential.https://${GH_HOST:-github.com}.helper" '!gh auth git-credential'
+gh config set git_protocol https --host "${GH_HOST:-github.com}"
 
 if [ ! -d "$OPENCODE_WORKSPACE/.git" ]; then
 	git init -q "$OPENCODE_WORKSPACE"
@@ -39,7 +46,7 @@ fi
 
 cd "$OPENCODE_WORKSPACE"
 
-echo "==> opencode $(opencode --version 2>/dev/null || echo unknown)"
+echo "==> opencode2 $(opencode2 --version 2>/dev/null || echo unknown)"
 echo "==> workspace $OPENCODE_WORKSPACE, data $HOME/.local/share/opencode"
 echo "==> caddy on :$PORT -> opencode on 127.0.0.1:$OPENCODE_INTERNAL_PORT"
 
@@ -49,7 +56,7 @@ caddy_pid=$!
 
 # Bound to loopback: Caddy is the only way in, so opencode is never directly
 # reachable even from inside the Railway private network.
-opencode web --hostname 127.0.0.1 --port "$OPENCODE_INTERNAL_PORT" &
+opencode2 serve --hostname 127.0.0.1 --port "$OPENCODE_INTERNAL_PORT" &
 opencode_pid=$!
 
 terminate() {

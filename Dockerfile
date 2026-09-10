@@ -1,8 +1,8 @@
-# opencode on Railway — https://github.com/sst/opencode
+# opencode on Railway — https://github.com/anomalyco/opencode
 #
 # Upstream publishes no runtime container image, only an npm package that pulls a
 # per-platform compiled binary. This image adds the three things a hosted code
-# server needs that `npm i -g opencode-ai` does not provide: a real toolchain for
+# server needs that `npm i -g @opencode/cli@beta` does not provide: a real toolchain for
 # the agent to build and test with, a Caddy front so Railway can health-check an
 # endpoint that opencode's basic auth would otherwise 401, and an entrypoint that
 # refuses to start unauthenticated.
@@ -18,6 +18,7 @@ COPY --from=caddy:2-alpine /usr/bin/caddy /usr/bin/caddy
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates \
         git \
+        gh \
         openssh-client \
         curl \
         wget \
@@ -36,18 +37,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
 
-# Floating by default: opencode ships several releases a week and `latest` is its
-# stable line (dev/next/beta are separate dist-tags). Override to pin a build.
-ARG OPENCODE_VERSION=latest
-RUN npm install -g "opencode-ai@${OPENCODE_VERSION}" \
+# Follow the OpenCode 2 beta channel. Override with an exact beta version to pin.
+ARG OPENCODE_VERSION=beta
+RUN npm install -g "@opencode/cli@${OPENCODE_VERSION}" \
     && npm cache clean --force \
-    && opencode --version
-
-# `opencode web` always tries to open a browser. In a container that throws an
-# ENOENT stack trace across the deploy log on every boot — caught and harmless,
-# but it reads like a crash. A no-op shim makes the call succeed quietly.
-RUN printf '#!/bin/sh\nexit 0\n' > /usr/local/bin/xdg-open \
-    && chmod +x /usr/local/bin/xdg-open
+    && opencode2 --version
 
 COPY Caddyfile /etc/caddy/Caddyfile
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
@@ -58,6 +52,9 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 # Pointing HOME at the mount lets one volume cover all of them plus the
 # workspace, which is all Railway's 1:1 volume rule allows.
 ENV HOME=/data \
+    GH_HOST=github.com \
+    GIT_TERMINAL_PROMPT=0 \
+    GH_PROMPT_DISABLED=1 \
     OPENCODE_WORKSPACE=/data/workspace \
     OPENCODE_INTERNAL_PORT=4096 \
     TINI_KILL_PROCESS_GROUP=1
