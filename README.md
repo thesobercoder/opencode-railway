@@ -55,6 +55,8 @@ them in Railway unless you want a different value.
 | `GIT_TERMINAL_PROMPT` | `0` | Prevent interactive Git credential prompts. |
 | `GH_PROMPT_DISABLED` | `1` | Disable GitHub CLI prompts. |
 | `RAILWAY_API_TOKEN` | None | Account/workspace token for Railway CLI and the default MCP connection. |
+| `FIRECRAWL_API_KEY` | None | Credential for the configured Firecrawl web-search provider. |
+| `OPENCODE_CONFIG_CONTENT` | `{"websearch":{"provider":"firecrawl"}}` | Inline OpenCode configuration supplied by the image. |
 
 `RAILWAY_DOCKERFILE_PATH` is unnecessary because `railway.json` already selects
 `Dockerfile`. The `GIT_CONFIG_COUNT`, `GIT_CONFIG_KEY_0`, and `GIT_CONFIG_VALUE_0`
@@ -95,6 +97,26 @@ Alternatively, run `railway login --browserless` in the container terminal.
 The login persists under `/data/.railway`. `GH_TOKEN` does not authenticate Railway,
 and a project-scoped `RAILWAY_TOKEN` is not sufficient for the default hosted MCP
 connection. See [Railway's token documentation](https://docs.railway.com/integrations/api#creating-a-token).
+
+## Web search
+
+The image explicitly selects Firecrawl for OpenCode's built-in web search:
+
+```json
+{"websearch":{"provider":"firecrawl"}}
+```
+
+This is supplied through `OPENCODE_CONFIG_CONTENT`; it does not rewrite files
+on the volume. Keep `FIRECRAWL_API_KEY` in Railway's service variables. The key
+is read at runtime and is not included in the image.
+
+Selecting a provider ID disables automatic provider switching. A usable
+Firecrawl credential is therefore needed for searches. If you override
+`OPENCODE_CONFIG_CONTENT` in Railway, include the `websearch` setting in your
+replacement JSON to retain this selection. This configures OpenCode's built-in
+search default; it does not force independent MCP tools or explicit API
+provider overrides to use Firecrawl. See the
+[OpenCode 2 search configuration](https://opencode.ai/v2/docs/config#web-search).
 
 ## Skills and Railway MCP
 
