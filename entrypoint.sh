@@ -46,14 +46,13 @@ fi
 
 cd "$OPENCODE_WORKSPACE"
 
-# Install once on the mounted volume. Leave existing skills intact on restart.
-if [ ! -f "$HOME/.agents/skills/use-railway/SKILL.md" ]; then
-	if ! timeout --kill-after=5s 60s skills add railwayapp/railway-skills -g -a universal --skill use-railway -y; then
-		echo "WARNING: Railway skill installation did not complete; the next boot will retry." >&2
-	fi
+# Refresh every configured skill on the mounted volume, including existing copies.
+if ! timeout --kill-after=5s 180s /usr/local/bin/install-skills.sh; then
+	echo "FATAL: Required global skills could not be installed or refreshed." >&2
+	exit 1
 fi
 
-# Configure MCP independently so a skill download failure does not block it.
+# MCP configuration is separate from skill installation.
 if ! timeout --kill-after=5s 60s railway mcp install --agent opencode; then
 	echo "WARNING: Railway MCP setup did not complete. Run 'railway mcp install --agent opencode' to retry." >&2
 fi

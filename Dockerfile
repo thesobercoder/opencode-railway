@@ -55,7 +55,8 @@ RUN npm install -g "skills@${SKILLS_CLI_VERSION}" \
 
 COPY Caddyfile /etc/caddy/Caddyfile
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+COPY install-skills.sh /usr/local/bin/install-skills.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/install-skills.sh
 
 # Every path opencode writes hangs off $HOME — ~/.config/opencode (config,
 # plugins), ~/.local/share/opencode (auth.json, sessions, logs) and ~/.cache.
