@@ -60,7 +60,7 @@ them in Railway unless you want a different value.
 | `FIRECRAWL_API_KEY` | None | Credential for the configured Firecrawl web-search provider. |
 | `PLAYWRIGHT_MCP_CDP_ENDPOINT` | None | Remote CDP WebSocket URL; enables the `browser` MCP at startup. |
 | `PLAYWRIGHT_MCP_CDP_HEADERS` | None | CDP connection headers; use `Host: localhost` with this Steel deployment. |
-| `OPENCODE_CONFIG_CONTENT` | Firecrawl search and an allow-all permission rule | Inline OpenCode configuration supplied by the image. |
+| `OPENCODE_CONFIG_CONTENT` | Firecrawl search, allow-all permissions, and the desktop browser plugin disabled | Inline OpenCode configuration supplied by the image. |
 
 `RAILWAY_DOCKERFILE_PATH` is unnecessary because `railway.json` already selects
 `Dockerfile`. The `GIT_CONFIG_COUNT`, `GIT_CONFIG_KEY_0`, and `GIT_CONFIG_VALUE_0`
@@ -178,6 +178,11 @@ skills persist, but startup only refreshes skills listed in `install-skills.sh`.
 an individual `skills add` command to refresh that skill.
 
 ## Browser verification with Steel
+
+The image disables OpenCode's built-in `opencode.browser` desktop integration
+with `"plugins":["-opencode.browser"]` in `OPENCODE_CONFIG_CONTENT`. The Steel
+MCP remains enabled, so agents use the remote browser without needing the
+desktop app. If you override that variable, retain this plugin setting.
 
 Deploy the [official Steel Browser template](https://railway.com/deploy/steelbrowser)
 into the same Railway project and environment as OpenCode. Name the service
