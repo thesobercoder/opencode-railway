@@ -63,7 +63,7 @@ RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/install-skills.sh
 # Pointing HOME at the mount lets one volume cover all of them plus the
 # workspace, which is all Railway's 1:1 volume rule allows.
 ENV HOME=/data \
-    OPENCODE_CONFIG_CONTENT='{"websearch":{"provider":"firecrawl"}}' \
+    OPENCODE_CONFIG_CONTENT='{"websearch":{"provider":"firecrawl"},"permissions":[{"action":"*","resource":"*","effect":"allow"}]}' \
     GH_HOST=github.com \
     GIT_TERMINAL_PROMPT=0 \
     GH_PROMPT_DISABLED=1 \

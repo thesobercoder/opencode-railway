@@ -56,7 +56,7 @@ them in Railway unless you want a different value.
 | `GH_PROMPT_DISABLED` | `1` | Disable GitHub CLI prompts. |
 | `RAILWAY_API_TOKEN` | None | Account/workspace token for Railway CLI and the default MCP connection. |
 | `FIRECRAWL_API_KEY` | None | Credential for the configured Firecrawl web-search provider. |
-| `OPENCODE_CONFIG_CONTENT` | `{"websearch":{"provider":"firecrawl"}}` | Inline OpenCode configuration supplied by the image. |
+| `OPENCODE_CONFIG_CONTENT` | Firecrawl search and an allow-all permission rule | Inline OpenCode configuration supplied by the image. |
 
 `RAILWAY_DOCKERFILE_PATH` is unnecessary because `railway.json` already selects
 `Dockerfile`. The `GIT_CONFIG_COUNT`, `GIT_CONFIG_KEY_0`, and `GIT_CONFIG_VALUE_0`
@@ -97,6 +97,24 @@ Alternatively, run `railway login --browserless` in the container terminal.
 The login persists under `/data/.railway`. `GH_TOKEN` does not authenticate Railway,
 and a project-scoped `RAILWAY_TOKEN` is not sufficient for the default hosted MCP
 connection. See [Railway's token documentation](https://docs.railway.com/integrations/api#creating-a-token).
+
+## Agent permissions
+
+The image enables an allow-all global policy for OpenCode agent actions:
+
+```json
+{"permissions":[{"action":"*","resource":"*","effect":"allow"}]}
+```
+
+This removes default approval prompts for actions such as shell commands, file
+changes, MCP tools, and access outside the workspace, including
+`/data/.agents/skills`. Web authentication still requires the server password.
+Explicit agent-specific permission rules can override the global policy.
+
+The rule is included in `OPENCODE_CONFIG_CONTENT` alongside the Firecrawl
+selection. If you set that variable in Railway, your JSON replaces the image's
+value; include both settings to retain both behaviors. See
+[OpenCode 2 permissions](https://opencode.ai/v2/docs/permissions).
 
 ## Web search
 
