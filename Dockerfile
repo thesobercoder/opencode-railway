@@ -43,6 +43,16 @@ RUN npm install -g "@opencode/cli@${OPENCODE_VERSION}" \
     && npm cache clean --force \
     && opencode2 --version
 
+ARG RAILWAY_CLI_VERSION=latest
+RUN npm install -g "@railway/cli@${RAILWAY_CLI_VERSION}" \
+    && npm cache clean --force \
+    && railway --version
+
+ARG SKILLS_CLI_VERSION=latest
+RUN npm install -g "skills@${SKILLS_CLI_VERSION}" \
+    && npm cache clean --force \
+    && skills --version
+
 COPY Caddyfile /etc/caddy/Caddyfile
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh

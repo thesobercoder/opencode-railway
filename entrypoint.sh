@@ -46,6 +46,18 @@ fi
 
 cd "$OPENCODE_WORKSPACE"
 
+# Install once on the mounted volume. Leave existing skills intact on restart.
+if [ ! -f "$HOME/.agents/skills/use-railway/SKILL.md" ]; then
+	if ! timeout --kill-after=5s 60s skills add railwayapp/railway-skills -g -a universal --skill use-railway -y; then
+		echo "WARNING: Railway skill installation did not complete; the next boot will retry." >&2
+	fi
+fi
+
+# Configure MCP independently so a skill download failure does not block it.
+if ! timeout --kill-after=5s 60s railway mcp install --agent opencode; then
+	echo "WARNING: Railway MCP setup did not complete. Run 'railway mcp install --agent opencode' to retry." >&2
+fi
+
 echo "==> opencode2 $(opencode2 --version 2>/dev/null || echo unknown)"
 echo "==> workspace $OPENCODE_WORKSPACE, data $HOME/.local/share/opencode"
 echo "==> caddy on :$PORT -> opencode on 127.0.0.1:$OPENCODE_INTERNAL_PORT"
