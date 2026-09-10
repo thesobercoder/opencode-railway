@@ -59,6 +59,7 @@ them in Railway unless you want a different value.
 | `RAILWAY_API_TOKEN` | None | Account/workspace token for Railway CLI and the default MCP connection. |
 | `FIRECRAWL_API_KEY` | None | Credential for the configured Firecrawl web-search provider. |
 | `PLAYWRIGHT_MCP_CDP_ENDPOINT` | None | Remote CDP WebSocket URL; enables the `browser` MCP at startup. |
+| `PLAYWRIGHT_MCP_CDP_HEADERS` | None | CDP connection headers; use `Host: localhost` with this Steel deployment. |
 | `OPENCODE_CONFIG_CONTENT` | Firecrawl search and an allow-all permission rule | Inline OpenCode configuration supplied by the image. |
 
 `RAILWAY_DOCKERFILE_PATH` is unnecessary because `railway.json` already selects
@@ -194,8 +195,12 @@ USE_SSL=false
 Keep Steel's health-check path at `/v1/health`. In the **OpenCode** service, set:
 
 ```dotenv
-PLAYWRIGHT_MCP_CDP_ENDPOINT=ws://steel-browser.railway.internal:9223
+PLAYWRIGHT_MCP_CDP_ENDPOINT=ws://steel-browser.railway.internal:3000
+PLAYWRIGHT_MCP_CDP_HEADERS=Host: localhost
 ```
+
+Port 3000 serves Steel's session WebSocket; 9223 is its raw Chrome debugger
+proxy. The CDP Host header satisfies Chrome's hostname check behind that proxy.
 
 Redeploy OpenCode. Startup registers `browser` in the global MCP configuration,
 using the image's Playwright MCP CLI. The CLI connects to Steel over Railway's
